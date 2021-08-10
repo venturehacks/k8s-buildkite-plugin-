@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -euo pipefail
+
+main() {
+  local pod_name
+  pod_name="$BUILDKITE_PIPELINE_SLUG-$BUILDKITE_JOB_ID"
+
+  not_ready_containers="$(kubectl get pods $pod_name -o jsonpath='{.status.containerStatuses[?(@.ready == false)].name}')"
+  if [[ -n "$not_ready_containers" ]]; then
+    echo "+++ :kubernetes: :warning: Not all containers were 'ready' when the build finished!"
+    echo "Events:"
+    kubectl get event --field-selector involvedObject.kind=Pod,involvedObject.name=$pod_name || true
+
+    echo -e "\n"
+    echo "Detailed state of 'non-ready' containers:"
+    kubectl get pods $pod_name -o jsonpath='{.status.containerStatuses[?(@.ready == false)]}{.state}{ "\n"}'
+  else
+    echo "--- :kubernetes: All containers were still up when the build finished :v:"
+  fi
+}
+
+main "$@"

@@ -10,7 +10,7 @@ def meld(a; b):
 
 (env | to_entries | map(select(.key | contains("BUILDKITE_")))) + (($ARGS.named.extra_env // {}) | to_entries) | map(.name=.key | del(.key)) as $env |
 
-(env.BUILDKITE_TIMEOUT | tonumber * 60) as $timeout |
+(env.BUILDKITE_TIMEOUT | (tonumber * 60 + 60)) as $timeout |
 
 (
   env.BUILDKITE_PLUGINS // "[]" |

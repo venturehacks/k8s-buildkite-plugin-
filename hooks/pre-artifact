@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -euo pipefail
+
+main() {
+  local pod_name
+  pod_name="$BUILDKITE_PIPELINE_SLUG-$BUILDKITE_JOB_ID"
+
+  if [[ -n "$BUILDKITE_ARTIFACT_PATHS" ]]; then
+    echo "--- :kubernetes: Copying artifacts..."
+    (kubectl exec "$pod_name" -c run -- /bin/bash -c 'tar czf - $(shopt -s nullglob; IFS=";" list=($BUILDKITE_ARTIFACT_PATHS); echo -n "${list[@]}") || true' | tar xzf - -C $(pwd) || true) &> /dev/null
+  fi
+
+  echo "--- :kubernetes: Retrieving containers logs..."
+  mkdir -p log
+  local container_list
+  container_list=$(kubectl get pods $pod_name -o 'jsonpath={.spec.containers[?(@.name != "run")].name}' || true)
+  for container_name in $container_list
+  do
+    echo "* $container_name"
+    kubectl logs "$pod_name" -c "$container_name" > "log/container-${container_name}.log" || true
+  done
+}
+
+main "$@"

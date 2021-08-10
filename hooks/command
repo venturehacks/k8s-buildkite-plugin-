@@ -26,19 +26,4 @@ main() {
   kubectl exec -c run "$pod_name" -- $BUILDKITE_COMMAND
 }
 
-cleanup() {
-  local pod_name
-  pod_name="$BUILDKITE_PIPELINE_SLUG-$BUILDKITE_JOB_ID"
-
-  if [[ -n "$BUILDKITE_ARTIFACT_PATHS" ]]; then
-    echo "--- :kubernetes: Copying artifacts..."
-    (kubectl exec "$pod_name" -c run -- /bin/bash -c 'tar czf - $(shopt -s nullglob; IFS=";" list=($BUILDKITE_ARTIFACT_PATHS); echo -n "${list[@]}") || true' | tar xzf - -C $(pwd) || true) &> /dev/null
-  fi
-
-  (kubectl patch pod --patch '{"spec":{"activeDeadlineSeconds":1}}' "$pod_name" &> /dev/null || true)
-  (kubectl delete pod "$pod_name" --now=true --wait=false &> /dev/null || true)
-}
-
-trap cleanup EXIT
-
 main "$@"
