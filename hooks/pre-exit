@@ -3,8 +3,7 @@
 set -euo pipefail
 
 main() {
-  (kubectl patch pod --patch '{"spec":{"activeDeadlineSeconds":1}}' "$BUILDKITE_PIPELINE_SLUG-$BUILDKITE_JOB_ID" &> /dev/null || true)
-  (kubectl delete pod "$BUILDKITE_PIPELINE_SLUG-$BUILDKITE_JOB_ID" --now=true --wait=false &> /dev/null || true)
+  kubectl delete pod "$BUILDKITE_PIPELINE_SLUG-$BUILDKITE_JOB_ID" --now=true --wait=false
 }
 
 main "$@"
