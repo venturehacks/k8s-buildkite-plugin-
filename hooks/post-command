@@ -1,23 +1,41 @@
 #!/bin/bash
 
-set -euo pipefail
+set -uo pipefail
 
 main() {
   local pod_name
   pod_name="$BUILDKITE_PIPELINE_SLUG-$BUILDKITE_JOB_ID"
 
-  not_ready_containers="$(kubectl get pods $pod_name -o jsonpath='{.status.containerStatuses[?(@.ready == false)].name}')"
-  if [[ -n "$not_ready_containers" ]]; then
-    echo "+++ :kubernetes: :warning: Not all containers were 'ready' when the build finished!"
-    echo "Events:"
-    kubectl get event --field-selector involvedObject.kind=Pod,involvedObject.name=$pod_name || true
-
-    echo -e "\n"
-    echo "Detailed state of 'non-ready' containers:"
-    kubectl get pods $pod_name -o jsonpath='{.status.containerStatuses[?(@.ready == false)]}{.state}{ "\n"}'
-  else
-    echo "--- :kubernetes: All containers were still up when the build finished :v:"
+  pod_final_phase=$(kubectl get pod $pod_name -o jsonpath='{.status.phase}' 2>&1)
+  if [[ $? -ne 0 ]]; then
+    echo "+++ :kubernetes: :warning: Unable to retrieve information about Pod $pod_name"
+    echo $pod_final_phase
+    exit 1
   fi
+
+  not_ready_containers="$(kubectl get pods $pod_name -o jsonpath='{.status.containerStatuses[?(@.ready == false)].name}')"
+  if [[ $? -eq 0 ]] && [[ -z "$not_ready_containers" ]] && [[ "$pod_final_phase" == "Running" ]]; then
+    echo "--- :kubernetes: Pod was running and all containers up when the build finished :v:"
+  else
+    echo "+++ :kubernetes: :warning: Not all containers were 'ready' or the Pod was not 'running' when the build finished!"
+  fi
+
+  echo "Pod Information:"
+  kubectl get pod $pod_name -o wide
+  echo ""
+
+  echo "Events:"
+  kubectl get event --field-selector involvedObject.kind=Pod,involvedObject.name=$pod_name
+  echo  ""
+
+  if [[ -n "$not_ready_containers" ]]; then
+    echo "State of 'non-ready' containers:"
+    kubectl get pods $pod_name -o jsonpath='{.status.containerStatuses[?(@.ready == false)]}{.state}{ "\n"}'
+    echo  ""
+  else
+    echo "All containers were ready"
+  fi
+
 }
 
 main "$@"
