@@ -8,7 +8,7 @@ def meld(a; b):
   else b
   end;
 
-(env | to_entries | map(select(.key | contains("BUILDKITE_")))) + (($ARGS.named.extra_env // {}) | to_entries) | map(.name=.key | del(.key)) as $env |
+(env | to_entries | map(select(.key | contains("BUILDKITE_")))) + (($ARGS.named.extra_env // {}) | to_entries) | map(.name= (.key | sub("/"; "_"; "g")) | del(.key)) as $env | 
 
 (env.BUILDKITE_TIMEOUT | (tonumber * 60 + 60)) as $timeout |
 
